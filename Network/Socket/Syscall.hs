@@ -87,6 +87,9 @@ socket family stype protocol =
         -- Let's ensure that the socket (file descriptor) is closed even on
         -- asynchronous exceptions.
         setNonBlock fd
+#if defined(mingw32_HOST_OS)
+        setNonInheritable fd
+#endif
 #if __IO_MANAGER_WINIO__ >= 2
         -- Associate socket with I/O manager immediately if using WinIO
         (return () <!> associateSocket fd)
@@ -261,6 +264,9 @@ accept :: SocketAddress sa => Socket -> IO (Socket, sa)
 accept listing_sock = withNewSocketAddress $ \new_sa sz ->
     withFdSocket listing_sock $ \listing_fd -> do
  new_sock <- E.bracketOnError (callAccept listing_fd new_sa sz) c_close $ \fd -> do
+#if defined(mingw32_HOST_OS)
+     setNonInheritable fd
+#endif
 #if __IO_MANAGER_WINIO__ >= 2
      -- Associate accepted socket with I/O manager if using WinIO
      (return () <!> associateSocket fd)
@@ -308,6 +314,17 @@ associateSocket fd = do
 
 foreign import ccall unsafe "windows.h SetFileCompletionNotificationModes"
     c_SetFileCompletionNotificationModes :: Ptr () -> Word8 -> IO Bool
+#endif
+
+#if defined(mingw32_HOST_OS)
+-- | Windows counterpart of FD_CLOEXEC.
+setNonInheritable :: CSocket -> IO ()
+setNonInheritable fd = do
+    ok <- c_SetHandleInformation (wordPtrToPtr $ fromIntegral fd) handleFlagInherit 0
+    unless ok $ ioError (userError "setNonInheritable: SetHandleInformation failed")
+
+foreign import ccall unsafe "windows.h SetHandleInformation"
+    c_SetHandleInformation :: Ptr () -> Word32 -> Word32 -> IO Bool
 
 #endif
 foreign import CALLCONV unsafe "socket"
