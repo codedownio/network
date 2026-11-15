@@ -41,6 +41,8 @@ wsaEHOSTUNREACH :: CInt
 wsaEHOSTUNREACH = #const WSAEHOSTUNREACH
 wsaENOPROTOOPT :: CInt
 wsaENOPROTOOPT = #const WSAENOPROTOOPT
+handleFlagInherit :: Word32
+handleFlagInherit = #const HANDLE_FLAG_INHERIT
 #else
 fGetFd :: CInt
 fGetFd = #const F_GETFD
