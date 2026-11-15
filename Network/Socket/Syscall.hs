@@ -87,9 +87,6 @@ socket family stype protocol =
         -- Let's ensure that the socket (file descriptor) is closed even on
         -- asynchronous exceptions.
         setNonBlock fd
-#if defined(mingw32_HOST_OS)
-        setNonInheritable fd
-#endif
 #if __IO_MANAGER_WINIO__ >= 2
         -- Associate socket with I/O manager immediately if using WinIO
         (return () <!> associateSocket fd)
@@ -317,7 +314,7 @@ foreign import ccall unsafe "windows.h SetFileCompletionNotificationModes"
 #endif
 
 #if defined(mingw32_HOST_OS)
--- | Windows counterpart of FD_CLOEXEC.
+-- | Not inherited by child processes, as @accept4@ with @SOCK_CLOEXEC@ does on POSIX.
 setNonInheritable :: CSocket -> IO ()
 setNonInheritable fd = do
     ok <- c_SetHandleInformation (wordPtrToPtr $ fromIntegral fd) handleFlagInherit 0
