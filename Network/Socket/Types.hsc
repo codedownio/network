@@ -22,6 +22,7 @@ module Network.Socket.Types (
     , fdSocket
     , mkSocket
     , invalidateSocket
+    , invalidSocket
     , labelSocket
     , socketLabel
     , close

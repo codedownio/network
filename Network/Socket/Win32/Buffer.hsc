@@ -57,7 +57,7 @@ sendBufTo s ptr nbytes sa =
   withSocketAddress sa $ \p_sa siz ->
     withFdSocket s $ \sock ->
       with (WSABuf (castPtr ptr) (fromIntegral nbytes)) $ \wbuf ->
-        withOverlappedSocket "Network.Socket.sendBufTo" sock
+        withOverlappedSocket "Network.Socket.sendBufTo" s sock
           (\ov -> c_WSASendTo sock wbuf 1 nullPtr 0 p_sa (fromIntegral siz)
                      (castPtr ov) nullPtr)
           sendResult
@@ -65,7 +65,7 @@ sendBufTo s ptr nbytes sa =
 sendBuf :: Socket -> Ptr Word8 -> Int -> IO Int
 sendBuf s ptr len = withFdSocket s $ \sock ->
   with (WSABuf ptr (fromIntegral len)) $ \wbuf ->
-    withOverlappedSocket "Network.Socket.sendBuf" sock
+    withOverlappedSocket "Network.Socket.sendBuf" s sock
       (\ov -> c_WSASend sock wbuf 1 nullPtr 0 (castPtr ov) nullPtr)
       sendResult
 
@@ -76,7 +76,7 @@ recvBufFrom s ptr nbytes =
             poke ptr_len (fromIntegral sz)
             len <- with (WSABuf (castPtr ptr) (fromIntegral nbytes)) $ \wbuf ->
               alloca $ \flags ->
-                withOverlappedSocket "Network.Socket.recvBufFrom" sock
+                withOverlappedSocket "Network.Socket.recvBufFrom" s sock
                   (\ov -> do
                       poke flags 0
                       c_WSARecvFrom sock wbuf 1 nullPtr flags ptr_sa ptr_len
@@ -90,7 +90,7 @@ recvBuf :: Socket -> Ptr Word8 -> Int -> IO Int
 recvBuf s ptr nbytes = withFdSocket s $ \sock ->
     with (WSABuf (castPtr ptr) (fromIntegral nbytes)) $ \wbuf ->
       alloca $ \flags ->
-        withOverlappedSocket "Network.Socket.recvBuf" sock
+        withOverlappedSocket "Network.Socket.recvBuf" s sock
           (\ov -> do
               poke flags 0
               c_WSARecv sock wbuf 1 nullPtr flags (castPtr ov) nullPtr)
@@ -131,7 +131,7 @@ sendBufMsg s sa bufsizs cmsgs flags = do
             cflags = fromMsgFlag flags
         withFdSocket s $ \fd ->
           with msgHdr $ \msgHdrPtr ->
-            sendBufMsgWinIO fd msgHdrPtr cflags
+            sendBufMsgWinIO s fd msgHdrPtr cflags
   return $ fromIntegral sz
 
 recvBufMsg :: SocketAddress sa
@@ -160,7 +160,7 @@ recvBufMsg s bufsizs clen flags = do
             _cflags = fromMsgFlag flags
         withFdSocket s $ \fd -> do
           with msgHdr $ \msgHdrPtr -> do
-            len <- recvBufMsgWinIO fd msgHdrPtr (sum $ map snd bufsizs)
+            len <- recvBufMsgWinIO s fd msgHdrPtr (sum $ map snd bufsizs)
             hdr <- peek msgHdrPtr
             sockaddr <- peekReceivedAddress s addrPtr (fromIntegral $ msgNameLen hdr)
 
@@ -194,18 +194,18 @@ clearCtrlOnTruncation msgHdrPtr ret = when (ret == -1) $ do
         (#poke WSAMSG, Control.len) msgHdrPtr (0 :: Word32)
         (#poke WSAMSG, Control.buf) msgHdrPtr (nullPtr :: Ptr Word8)
 
-sendBufMsgWinIO :: CSocket -> Ptr (MsgHdr sa) -> CInt -> IO CInt
-sendBufMsgWinIO fd msgHdrPtr cflags = do
+sendBufMsgWinIO :: Socket -> CSocket -> Ptr (MsgHdr sa) -> CInt -> IO CInt
+sendBufMsgWinIO s fd msgHdrPtr cflags = do
   sendMsg <- mkSendMsgUnsafe <$> getWSASendMsg fd
-  fmap fromIntegral $ withOverlappedSocket "Network.Socket.sendBufMsg" fd
+  fmap fromIntegral $ withOverlappedSocket "Network.Socket.sendBufMsg" s fd
     (\ov -> sendMsg fd (castPtr msgHdrPtr) (fromIntegral cflags) nullPtr
                (castPtr ov) nullPtr)
     sendResult
 
-recvBufMsgWinIO :: CSocket -> Ptr (MsgHdr sa) -> Int -> IO Int
-recvBufMsgWinIO fd msgHdrPtr size = do
+recvBufMsgWinIO :: Socket -> CSocket -> Ptr (MsgHdr sa) -> Int -> IO Int
+recvBufMsgWinIO s fd msgHdrPtr size = do
     recvMsg <- mkRecvMsgUnsafe <$> getWSARecvMsg fd
-    withOverlappedSocket "Network.Socket.recvMsg" fd
+    withOverlappedSocket "Network.Socket.recvMsg" s fd
       (\ov -> do
           ret <- recvMsg fd (castPtr msgHdrPtr) nullPtr (castPtr ov) nullPtr
           clearCtrlOnTruncation msgHdrPtr ret

@@ -112,19 +112,31 @@ winsockErrorString rc = do
 --   as a value rather than thrown by the I/O manager, which knows neither
 --   NTSTATUS nor Winsock codes, and is raised as other socket errors are,
 --   unless the last argument turns it into a result.
+--
+--   Once another process has closed a handle to the socket, Windows cancels
+--   an operation when the OS thread which began it exits, as the RTS's
+--   spare worker threads do.  A cancelled operation is begun again while
+--   the socket is open, and is a failure once it is closed.
 withOverlappedSocket
     :: String
+    -> Socket
     -> CSocket
     -> (Mgr.LPOVERLAPPED -> IO CInt)
     -> (CInt -> Maybe Int)
     -> IO Int
-withOverlappedSocket name fd start result = do
-    r <- Mgr.withOverlapped name (wordPtrToPtr $ fromIntegral fd) 0 startCB completionCB
-    case r of
-        Mgr.IOSuccess (Right n) -> return n
-        Mgr.IOSuccess (Left rc) -> throwSocketErrorCode name rc
-        Mgr.IOFailed e -> throwSocketErrorCode name (maybe 0 fromIntegral e)
+withOverlappedSocket name s fd start result = loop
   where
+    loop = do
+        r <- Mgr.withOverlapped name (wordPtrToPtr $ fromIntegral fd) 0 startCB completionCB
+        case r of
+            Mgr.IOSuccess (Right n) -> return n
+            Mgr.IOSuccess (Left rc)
+                | rc == wsaOperationAborted -> do
+                    cur <- unsafeFdSocket s
+                    if cur == invalidSocket then failed rc else loop
+                | otherwise -> throwSocketErrorCode name rc
+            Mgr.IOFailed e -> throwSocketErrorCode name (maybe 0 fromIntegral e)
+    failed rc = maybe (throwSocketErrorCode name rc) return $ result rc
     -- An overlapped socket queues a completion packet even when the call
     -- succeeds at once, so the I/O manager resolves that case too.
     startCB ov = do
@@ -136,7 +148,9 @@ withOverlappedSocket name fd start result = do
                 else Mgr.CbError (fromIntegral rc)
     completionCB st bytes = Mgr.ioSuccess $ case c_winsock_code st of
         0 -> Right $ fromIntegral bytes
-        rc -> maybe (Left rc) Right $ result rc
+        rc | rc == wsaOperationAborted && bytes > 0 -> Right $ fromIntegral bytes
+           | rc == wsaOperationAborted -> Left rc
+           | otherwise -> maybe (Left rc) Right $ result rc
     errorIoPending = 997
 
 -- The completion status as a Winsock code: an NTSTATUS when the operation

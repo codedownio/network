@@ -25,6 +25,9 @@ sioUDPConnReset = #const SIO_UDP_CONNRESET
 -- | What closesocket gives a call already blocked on the socket.
 wsaEINTR :: CInt
 wsaEINTR = #const WSAEINTR
+-- | What an operation Windows cancelled completes with.
+wsaOperationAborted :: CInt
+wsaOperationAborted = #const WSA_OPERATION_ABORTED
 -- | What a socket operation gives once the socket has been closed.
 wsaENOTSOCK :: CInt
 wsaENOTSOCK = #const WSAENOTSOCK
