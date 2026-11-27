@@ -95,6 +95,10 @@ fileSkipCompletionPortOnSuccess :: Word8
 fileSkipCompletionPortOnSuccess = #const FILE_SKIP_COMPLETION_PORT_ON_SUCCESS
 handleFlagInherit :: Word32
 handleFlagInherit = #const HANDLE_FLAG_INHERIT
+wsaFlagOverlapped :: Word32
+wsaFlagOverlapped = #const WSA_FLAG_OVERLAPPED
+wsaFlagNoHandleInherit :: Word32
+wsaFlagNoHandleInherit = #const WSA_FLAG_NO_HANDLE_INHERIT
 #else
 fGetFd :: CInt
 fGetFd = #const F_GETFD

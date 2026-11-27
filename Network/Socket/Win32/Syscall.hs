@@ -4,6 +4,7 @@
 
 -- | The Windows parts of "Network.Socket.Syscall".
 module Network.Socket.Win32.Syscall (
+    socketFd,
     setupSocket,
     setupAccepted,
     acceptFd,
@@ -22,6 +23,13 @@ import Network.Socket.Cbits
 import Network.Socket.Imports
 import Network.Socket.Internal
 import Network.Socket.Types
+
+-- | Creating a socket which child processes don't inherit, as with
+--   @SOCK_CLOEXEC@ on POSIX.  Sockets accepted on it don't either.
+socketFd :: CInt -> CInt -> CInt -> IO CSocket
+socketFd family stype protocol =
+    c_WSASocketW family stype protocol nullPtr 0
+        (wsaFlagOverlapped .|. wsaFlagNoHandleInherit)
 
 -- | Preparing a new socket: see 'associateSocket'.
 setupSocket :: CSocket -> IO ()
@@ -90,6 +98,9 @@ connectNext errLoc = do
 
 foreign import CALLCONV unsafe "accept"
   c_accept :: CSocket -> Ptr sa -> Ptr CInt{-CSockLen???-} -> IO CSocket
+
+foreign import CALLCONV unsafe "WSASocketW"
+  c_WSASocketW :: CInt -> CInt -> CInt -> Ptr () -> Word32 -> Word32 -> IO CSocket
 
 foreign import ccall unsafe "hsnet_set_nonblock"
     c_set_nonblock :: CSocket -> IO CInt

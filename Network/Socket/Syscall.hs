@@ -47,6 +47,7 @@ import qualified Network.Socket.Posix.Syscall as P
 -- If 'AF_INET6' is used and the socket type is 'Stream' or 'Datagram',
 -- the 'IPv6Only' socket option is set to 0 so that both IPv4 and IPv6
 -- can be handled with one socket.
+-- On Windows, child processes don't inherit the socket.
 --
 -- >>> import Network.Socket
 -- >>> import qualified Data.List.NonEmpty as NE
@@ -227,8 +228,13 @@ acceptBy acceptFd listing_sock = withNewSocketAddress $ \new_sa sz ->
                 return (sock, len)
         for r $ \(new_sock, len) -> (,) new_sock <$> peekSocketAddressLen new_sa len
 
+#if defined(mingw32_HOST_OS)
+c_socket :: CInt -> CInt -> CInt -> IO CSocket
+c_socket = P.socketFd
+#else
 foreign import CALLCONV unsafe "socket"
   c_socket :: CInt -> CInt -> CInt -> IO CSocket
+#endif
 foreign import CALLCONV unsafe "bind"
   c_bind :: CSocket -> Ptr sa -> CInt{-CSockLen???-} -> IO CInt
 foreign import CALLCONV unsafe "connect"

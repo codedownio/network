@@ -48,7 +48,8 @@ wsaDuplicate (SOCKET s)
     return -1;
 
   SOCKET res = WSASocketW(FROM_PROTOCOL_INFO, FROM_PROTOCOL_INFO,
-                          FROM_PROTOCOL_INFO, &protocolInfo, 0, 0);
+                          FROM_PROTOCOL_INFO, &protocolInfo, 0,
+                          WSA_FLAG_NO_HANDLE_INHERIT);
   if (res == SOCKET_ERROR)
     return -1;
 

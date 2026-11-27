@@ -31,6 +31,9 @@
 # include "win32defs.h"
 # include "afunix_compat.h"
 # define IPV6_V6ONLY 27
+# ifndef WSA_FLAG_NO_HANDLE_INHERIT
+#  define WSA_FLAG_NO_HANDLE_INHERIT 0x80
+# endif
 #endif
 
 #ifdef HAVE_LIMITS_H
