@@ -5,12 +5,6 @@
 
 static int winsock_inited = 0;
 
-static void
-shutdownHandler(void)
-{
-  WSACleanup();
-}
-
 /* Initialising WinSock... */
 int
 initWinSock ()
@@ -34,7 +28,6 @@ initWinSock ()
       return (-1);
     }
 
-    atexit(shutdownHandler);
     winsock_inited = 1;
   }
   return 0;
